@@ -10,6 +10,11 @@ image:
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest"
 
+configuration:
+  env:
+    TARGET_HOSTS_DNS_NAME: "target-service"
+    TARGET_HOSTS_PORT: 8080
+
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
