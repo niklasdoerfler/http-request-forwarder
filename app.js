@@ -71,7 +71,7 @@ app.all('*', (req, res, next) => {
             .then((data) => {
                 console.log(data)
                 res.send(data);
-            }).catch(err => res.send(err));
+            }).catch(err => res.status(400).send(err));
     });
 })
 
