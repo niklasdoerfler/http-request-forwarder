@@ -45,15 +45,24 @@ app.all('*', (req, res, next) => {
 
                 http
                     .request(options, resp => {
-                        // log the data
-                        resp.once("data", d => {
+                        const chunks = [];
+                        resp.on('data', data => chunks.push(data));
+                        resp.on('end', () => {
+                            let resBody = Buffer.concat(chunks);
+                            switch (resp.headers['content-type']) {
+                                case 'application/json':
+                                    resBody = JSON.parse(resBody);
+                                    break;
+                            }
                             console.log("Got response for call: http://%s:%d%s -> %d: %s", options.hostname, options.port, options.path, resp.statusCode, resp.statusMessage);
                             res({
                                 ...options,
                                 statusCode: resp.statusCode,
-                                statusMessage: resp.statusMessage
+                                statusMessage: resp.statusMessage,
+                                body: resBody.toString()
                             })
-                        });
+
+                        })
                     })
                     .on("error", err => {
                         console.log("Error: " + err.message);
@@ -62,7 +71,8 @@ app.all('*', (req, res, next) => {
                             ...options,
                             err: err
                         })
-                    }).end();
+                    })
+                    .end();
             }));
         });
 
