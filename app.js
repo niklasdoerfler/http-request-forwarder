@@ -5,6 +5,21 @@ const dns = require('dns');
 const app = express();
 const port = 3000;
 
+
+app.get('/health', (req, res, next) => {
+    const target = process.env.TARGET_HOSTS_DNS_NAME;
+    if (target == undefined) {
+        return next(new Error("environment variable TARGET_HOSTS_DNS_NAME is not set"))
+    }
+
+    dns.lookup(process.env.TARGET_HOSTS_DNS_NAME, { all: true }, (err, addresses) => {
+        if (addresses == undefined) {
+            return next(new Error("Unable to resolve hostname '" + process.env.TARGET_HOSTS_DNS_NAME + "'."));
+        }
+        res.send(addresses)
+    })
+})
+
 app.all('*', (req, res, next) => {
     dns.lookup(process.env.TARGET_HOSTS_DNS_NAME, { all: true }, (err, addresses) => {
         if (addresses == undefined) {
