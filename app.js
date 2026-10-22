@@ -5,6 +5,8 @@ const dns = require('dns');
 const app = express();
 const port = 3000;
 
+const targetDnsName = process.env.TARGET_HOSTS_DNS_NAME?.trim();
+const targetHostsPort = process.env.TARGET_HOSTS_PORT;
 const forwardEndpoints = process.env.TARGET_ADDITIONAL_FORWARD_ENDPOINTS || '';
 
 const parseEndpoints = (endpointsStr) => {
@@ -29,25 +31,27 @@ const parseEndpoints = (endpointsStr) => {
 const endpointsList = parseEndpoints(forwardEndpoints);
 
 app.get('/health', (req, res, next) => {
-    const target = process.env.TARGET_HOSTS_DNS_NAME;
-    if (target === undefined) {
-        return next(new Error("Environment variable TARGET_HOSTS_DNS_NAME is not set"));
+    if (!targetDnsName) {
+        if (endpointsList.length === 0) {
+            return res.status(500).send('No forwarding targets configured. Set TARGET_HOSTS_DNS_NAME or TARGET_ADDITIONAL_FORWARD_ENDPOINTS.');
+        }
+        return res.send({ status: 'ok' });
     }
 
-    dns.lookup(target, { all: true }, (err, addresses) => {
-        if (addresses === undefined) {
-            return next(new Error("Unable to resolve hostname '" + target + "'."));
+    dns.lookup(targetDnsName, { all: true }, (err, addresses) => {
+        if (err || addresses === undefined) {
+            return next(new Error("Unable to resolve hostname '" + targetDnsName + "'."));
         }
         res.send(addresses);
     });
 });
 
 app.all('/{*splat}', (req, res, next) => {
-    dns.lookup(process.env.TARGET_HOSTS_DNS_NAME, { all: true }, (err, addresses) => {
-        if (addresses === undefined) {
-            return next(new Error("Unable to resolve hostname '" + process.env.TARGET_HOSTS_DNS_NAME + "'."));
-        }
+    if (!targetDnsName && endpointsList.length === 0) {
+        return res.status(500).send('No forwarding targets configured. Set TARGET_HOSTS_DNS_NAME or TARGET_ADDITIONAL_FORWARD_ENDPOINTS.');
+    }
 
+    const forwardRequests = (addresses) => {
         const promises = [];
 
         addresses.forEach((address) => {
@@ -57,7 +61,7 @@ app.all('/{*splat}', (req, res, next) => {
                 }
                 const options = {
                     hostname: address.address,
-                    port: process.env.TARGET_HOSTS_PORT,
+                    port: targetHostsPort,
                     path: req.url,
                     method: req.method,
                     headers: req.headers,
@@ -178,6 +182,17 @@ app.all('/{*splat}', (req, res, next) => {
                 res.send(data);
             })
             .catch((err) => res.status(400).send(err));
+    };
+
+    if (!targetDnsName) {
+        return forwardRequests([]);
+    }
+
+    dns.lookup(targetDnsName, { all: true }, (err, addresses) => {
+        if (err || addresses === undefined) {
+            return next(new Error("Unable to resolve hostname '" + targetDnsName + "'."));
+        }
+        forwardRequests(addresses);
     });
 });
 
