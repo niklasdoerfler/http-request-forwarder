@@ -42,7 +42,7 @@ app.get('/health', (req, res, next) => {
     });
 });
 
-app.all('*', (req, res, next) => {
+app.all('/{*splat}', (req, res, next) => {
     dns.lookup(process.env.TARGET_HOSTS_DNS_NAME, { all: true }, (err, addresses) => {
         if (addresses === undefined) {
             return next(new Error("Unable to resolve hostname '" + process.env.TARGET_HOSTS_DNS_NAME + "'."));
