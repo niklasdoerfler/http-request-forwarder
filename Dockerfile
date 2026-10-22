@@ -1,13 +1,16 @@
-FROM node:18-alpine
+FROM node:24-alpine
 
 # Set app directory as workdir
 WORKDIR /usr/src/app
 
-# Bundle app source
-COPY . /usr/src/app
+# Copy dependency manifests
+COPY package*.json ./
 
-# Install deps
-RUN npm install
+# Install production dependencies
+RUN npm ci --omit=dev
+
+# Bundle app source
+COPY . .
 
 # Run Project
-CMD node app.js
+CMD ["node", "app.js"]
